@@ -18,14 +18,14 @@ if CLIENT then
         --[name] = {holdtype, int}
     }
     function SetHoldType(player, holdtype)
-        if holdtypes[player:getName()] == nil or holdtypes[player:getName()][1] != holdtype then
+        if holdTypes[player:getName()] == nil or holdTypes[player:getName()][1] != holdtype then
             holdTypes[player:getName()] = {holdtype, 0}
         end
     end
     function ReSetHoldType(player)
+        player:resetGesture(1)
         if holdTypes[player:getName()] != nil then
         table.removeByValue(holdTypes, holdTypes[player:getName()])
-        player:resetGesture(1)
         end
     end
     hook.add("PlayerConnect", "", function(networkid, name, userid, isbot) table.add(players, name) end)
@@ -79,6 +79,13 @@ if CLIENT then
                     end
                 end
             end
+        end
+    end)
+    hook.add("Removed", "", function() 
+        local I = 0
+        while I < table.count(players) do I = I + 1
+            local p = find.playersByName(players[I], true, true)[1]
+            ReSetHoldType(p)
         end
     end)
 end
