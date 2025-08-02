@@ -37,19 +37,21 @@ if SERVER then
                 canLoad = false
                 ammoAtTheTimeOfStartingLoad = ammo
                 timer.simple(0.33, function()
-                if not overload then
-                    if ammoAtTheTimeOfStartingLoad + 1 < 4 then
-                        ammo = ammo + 1
-                        owner():emitSound("weapons/dumpster_rocket_reload.wav", 75, 67 + 11*ammo, 1, 0)
+                if owner():keyDown(IN_KEY.ATTACK) then
+                    if not overload then
+                        if ammoAtTheTimeOfStartingLoad + 1 < 4 then
+                            ammo = ammo + 1
+                            owner():emitSound("weapons/dumpster_rocket_reload.wav", 75, 67 + 11*ammo, 1, 0)
+                        else
+                            overload = true
+                            ammo = ammo - 1
+                            overloadExplode()
+                        end
                     else
-                        overload = true
                         ammo = ammo - 1
                         overloadExplode()
+                        if ammo == 0 then overload = false net.start("playerStopLoad") net.send(owner()) end
                     end
-                else
-                    ammo = ammo - 1
-                    overloadExplode()
-                    if ammo == 0 then overload = false net.start("playerStopLoad") net.send(owner()) end
                 end
                 end)
                 --print(ammo)
