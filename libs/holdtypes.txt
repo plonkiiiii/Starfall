@@ -32,46 +32,48 @@ if CLIENT then
         local I = 0
         while I < table.count(players) do I = I + 1
             local p = find.playersByName(players[I], true, true)[1]
-            if holdTypes[players[I]] != nil then
-                if p:getWaterLevel() < 1 then
-                    if not p:isCrouching() then
-                        if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 1 then
-                        p:resetGesture(1)
-                        p:playGesture("Idle_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 1
+            if player() == owner() or p == owner() then
+                if holdTypes[players[I]] != nil then
+                    if p:getWaterLevel() < 1 then
+                        if not p:isCrouching() then
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 1 then
+                            p:resetGesture(1)
+                            p:playGesture("Idle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 1
+                            end
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 2 then
+                            p:resetGesture(1)
+                            p:playGesture("Run_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 2
+                            end
+                        else
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 3 then
+                            p:resetGesture(1)
+                            p:playGesture("Cidle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 3
+                            end
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 4 then
+                            p:resetGesture(1)
+                            p:playGesture("CWalk_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 4
+                            end
                         end
-                        if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 2 then
-                        p:resetGesture(1)
-                        p:playGesture("Run_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 2
+                        if !p:isOnGround() and holdTypes[players[I]][2] != 5 then
+                            p:resetGesture(1)
+                            p:playGesture("Jump_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 5
                         end
                     else
-                        if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 3 then
-                        p:resetGesture(1)
-                        p:playGesture("Cidle_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 3
+                        if p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 6 then
+                            p:resetGesture(1)
+                            p:playGesture("Swim_Idle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 6
                         end
-                        if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 4 then
-                        p:resetGesture(1)
-                        p:playGesture("CWalk_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 4
+                        if  p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 7 then
+                            p:resetGesture(1)
+                            p:playGesture("Swimming_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 7
                         end
-                    end
-                    if !p:isOnGround() and holdTypes[players[I]][2] != 5 then
-                        p:resetGesture(1)
-                        p:playGesture("Jump_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 5
-                    end
-                else
-                    if p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 6 then
-                        p:resetGesture(1)
-                        p:playGesture("Swim_Idle_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 6
-                    end
-                    if  p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 7 then
-                        p:resetGesture(1)
-                        p:playGesture("Swimming_"..holdTypes[players[I]][1], true, 1, 1)
-                        holdTypes[players[I]][2] = 7
                     end
                 end
             end
