@@ -99,7 +99,7 @@ if SERVER then
                     if Tr.Hit then if data[6] != DAMAGE.BLAST then 
                         game.bulletDamage(data[1]:getPos() - Vector(data[2]*game.getTickInterval(),0,0):getRotated(data[1]:getAngles()), Vector(1,0,0):getRotated(data[1]:getAngles()), 1, 1, 1000, 50, nil, 1, owner(), nil) 
                         else
-                    game.blastDamage(Tr.HitPos, data[4]/2, data[4]) 
+                    game.blastDamage(Tr.HitPos, 150, data[4]) 
                     if data[8] then local p = prop.create(Tr.HitPos, Angle(), "models/props_phx/misc/potato_launcher_explosive.mdl", true) p:breakEnt() else
                         local eff = effect.create()
                         --eff:setOrigin(Tr.HitPos)
