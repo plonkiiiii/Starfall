@@ -11,6 +11,7 @@ if SERVER then
     canLoad = true
     canShoot = true
     overload = false
+    loadState = 0
     hook.add("tick", "main", function()
         --if owner():getJumpPower() != 300 then owner():setJumpPower(300) end
         if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not owner():inVehicle() then
@@ -36,36 +37,53 @@ if SERVER then
                     if owner():isCrouching() then mult = 2 end
                     owner():setVelocity(Vector(0, 350*mult, 0):getRotated(owner():getEyeAngles())+Vector(0,0,250*mult))
                 end
+                local function TryLoadMissle()
+                    timer.simple(0.33, function()
+                        canShoot = true
+                        if owner():keyDown(IN_KEY.ATTACK) or ammoAtTheTimeOfStartingLoad+1 < 4 then
+                            if not overload then
+                                if ammoAtTheTimeOfStartingLoad + 1 < 4 then
+                                    ammo = ammo + 1
+                                    owner():emitSound("weapons/dumpster_rocket_reload.wav", 75, 67 + 11*ammo, 1, 0)
+                                else
+                                    overload = true
+                                    ammo = ammo - 1
+                                    overloadExplode()
+                                end
+                            else
+                                ammo = ammo - 1
+                                overloadExplode()
+                                if ammo == 0 then overload = false net.start("playerStopLoad") net.send(owner()) end
+                            end
+                        end
+                    end)
+                end
                 canLoad = false
                 ammoAtTheTimeOfStartingLoad = ammo
                 canShoot = false
-                timer.simple(0.33, function()
-                canShoot = true
-                if owner():keyDown(IN_KEY.ATTACK) or ammoAtTheTimeOfStartingLoad+1 < 4 then
-                    if not overload then
-                        if ammoAtTheTimeOfStartingLoad + 1 < 4 then
-                            ammo = ammo + 1
-                            owner():emitSound("weapons/dumpster_rocket_reload.wav", 75, 67 + 11*ammo, 1, 0)
-                        else
-                            overload = true
-                            ammo = ammo - 1
-                            overloadExplode()
-                        end
-                    else
-                        ammo = ammo - 1
-                        overloadExplode()
-                        if ammo == 0 then overload = false net.start("playerStopLoad") net.send(owner()) end
-                    end
-                end
-                end)
-                --print(ammo)
+                if loadState == 1 then
+                    TryLoadMissle()
+                end 
                 net.start("playerLoad")
+                net.writeUInt(loadState, 1)
                 net.send()
+                if loadState == 1 then
                 timer.simple(1, function() canLoad = true end)
+                else
+                timer.simple(0.55, function()
+                loadState = 1 
+                net.start("playerLoad")
+                net.writeUInt(loadState, 1)
+                net.send()
+                TryLoadMissle()
+                timer.simple(1, function() canLoad = true end)
+                end)
+                end
             end
-            if !owner():keyDown(IN_KEY.ATTACK) then overload = false end
+            if !owner():keyDown(IN_KEY.ATTACK) then overload = false loadState = 0 end
             if not owner():keyDown(IN_KEY.ATTACK) and ammo > 0 and canShoot then
                 Shoot()
+                loadState = 0
                 canShoot = false
                 ammo = ammo - 1
                 timer.simple(0.25, function() canShoot = true end)
@@ -213,7 +231,11 @@ if CLIENT then
         owner():resetGesture(2)
         owner():playGesture("Reload_Pistol", false, 2, 1)
         if vmHolo != nil and vmHolo:isValid() then
-            vmHolo:setAnimation("Reload_Loop", 0, 0.75)
+            if net.readUInt(1) == 0 then
+                vmHolo:setAnimation("Reload_Start", 0, 1)
+            else
+                vmHolo:setAnimation("Reload_Loop", 0, 0.75)
+            end
         end
     end)
     net.receive("playerStopLoad", function()
@@ -288,9 +310,7 @@ if CLIENT then
         hook.add("think", "BazookaVMCreate", function()
             if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not owner():inVehicle() and not camEnabled then
             if vmHolo == nil or !vmHolo:isValid() then
-                rot = 90
-                pos = -15
-                vmHolo = hologram.create(owner():getEyePos() + Vector(pos,0,0):getRotated(owner():getEyeAngles()), owner():getEyeAngles() + Angle(rot,0,0), "models/weapons/v_models/v_rocketlauncher_soldier.mdl", Vector(0.5))
+                vmHolo = hologram.create(owner():getEyePos()+Vector(15,0,0):getRotated(owner():getEyeAngles()), owner():getEyeAngles(), "models/weapons/v_models/v_rocketlauncher_soldier.mdl", Vector(0.5))
                 vmHolo:setRenderGroup(RENDERGROUP.VIEWMODEL)
                 vmHolo:setAnimation("Idle", 0, 1)
                 vmHolo:setSubMaterial(2, "Models/effects/vol_light001")
@@ -298,11 +318,7 @@ if CLIENT then
                 vmHolo2:setRenderGroup(RENDERGROUP.VIEWMODEL)
                 vmHolo2:setParent(vmHolo, nil, vmHolo:lookupBone("rl_body"))
                 owner():emitSound("player/taunt_workout_get_up_draw.wav", 75, 100, 1, 1)
-            else
-                if rot > 0 then
-                rot = rot - timer.frametime()*270 else rot = 0 end
-                if pos < 0 then
-                pos = pos + timer.frametime()*45 else pos = 0 end
+                vmHolo:setAnimation("Draw",0,1)
             end
             else
                 if vmHolo != nil and vmHolo:isValid() then vmHolo:remove() end
@@ -311,8 +327,8 @@ if CLIENT then
         end)
         hook.add("PreDrawViewModels", "BazookaVM", function() 
             if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not camEnabled and vmHolo != nil and vmHolo:isValid() then
-                vmHolo:setPos(owner():getEyePos() + Vector(15+pos,0,-1):getRotated(owner():getEyeAngles()))
-                vmHolo:setAngles(owner():getEyeAngles()+Angle(rot,-rot,0))
+                vmHolo:setPos(owner():getEyePos()+Vector(15,0,0):getRotated(owner():getEyeAngles()))
+                vmHolo:setAngles(owner():getEyeAngles())
             end
         end)
     end
