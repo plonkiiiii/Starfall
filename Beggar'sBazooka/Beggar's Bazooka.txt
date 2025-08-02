@@ -9,7 +9,7 @@ if SERVER then
     canShoot = true
     overload = false
     hook.add("tick", "main", function()
-        if owner():getJumpPower() != 300 then owner():setJumpPower(300) end
+        --if owner():getJumpPower() != 300 then owner():setJumpPower(300) end
         if string.endsWith(tostring(owner():getActiveWeapon()),"none]") then
             local function Shoot()
                 local P = hologram.create(owner():getEyePos() + Vector(0, -10, -5):getRotated(owner():getEyeAngles()), (owner():getEyeTrace().HitPos-owner():getEyePos()):getAngle(), "models/weapons/w_models/w_rocket.mdl", Vector(0.5))
@@ -18,7 +18,7 @@ if SERVER then
                 T:setParent(P)
                 T:setLocalPos(Vector())
                 T:setLocalAngles(Angle())
-                CreateProj(P, 1400, 0, 300, 10, DAMAGE.BLAST, nil, false)
+                CreateProj(P, 1400, 0, 300/1000*owner():getMaxHealth(), 10, DAMAGE.BLAST, nil, false)
                 owner():emitSound("weapons/doom_rocket_launcher.wav", 75, math.random(90,110), 1, 0)
                 net.start("playerFired")
                 net.send()
@@ -28,7 +28,7 @@ if SERVER then
                     net.start("sendExp")
                     net.writeVector(owner():getAttachment(owner():lookupAttachment("anim_attachment_RH")))
                     net.send()
-                    game.blastDamage(owner():getAttachment(owner():lookupAttachment("anim_attachment_RH")), 100, 150)
+                    game.blastDamage(owner():getAttachment(owner():lookupAttachment("anim_attachment_RH")), 100, owner():getMaxHealth()/6.67)
                     local mult = 1
                     if owner():isCrouching() then mult = 2 end
                     owner():setVelocity(Vector(0, 350*mult, 0):getRotated(owner():getEyeAngles())+Vector(0,0,250*mult))
