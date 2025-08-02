@@ -1,9 +1,7 @@
 --@name Beggar's Bazooka
 --@author plonk
 --@shared
---@include libs/holdtypes.txt
 --Functions - Server
-require("libs/holdtypes.txt")
 if SERVER then
     enableHud(owner(), true)
     RocketDamage = 375
@@ -214,6 +212,83 @@ if SERVER then
 end
 --Functions - Client 
 if CLIENT then
+    
+    players = find.allPlayers()
+    holdTypes = {
+        --[player] = {holdtype, int}
+    }
+    function SetHoldType(player, holdtype)
+        if holdTypes[player] == nil or holdTypes[player][1] != holdtype then
+            holdTypes[player] = {holdtype, 0}
+        end
+    end
+    function ReSetHoldType(player)
+        player:resetGesture(1)
+        if holdTypes[player] != nil then
+        table.removeByValue(holdTypes, holdTypes[player])
+        end
+    end
+    hook.add("PlayerConnect", "", function(networkid, name, userid, isbot) local tbl = find.playersByName(name, casesensitive, exact) if tbl != nil and tbl[1] != nil and tbl[1]:isPlayer() then table.add(players, {tbl[1]}) end end)
+    hook.add("PlayerDisconnect", "", function(networkid, name, userid, isbot) local I = 0 while I < table.count(players) do I = I + 1 if players[I] == nil then table.remove(players, I) I = I - 1 end end end)
+    hook.add("think", "thinker", function()
+        local I = 0
+        while I < table.count(players) do I = I + 1
+            local p = players[I]
+            if player() == owner() or p == owner() then
+                if holdTypes[players[I]] != nil then
+                    if p:getWaterLevel() < 1 then
+                        if not p:isCrouching() then
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 1 then
+                            p:resetGesture(1)
+                            p:playGesture("Idle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 1
+                            end
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 2 then
+                            p:resetGesture(1)
+                            p:playGesture("Run_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 2
+                            end
+                        else
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 3 then
+                            p:resetGesture(1)
+                            p:playGesture("Cidle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 3
+                            end
+                            if p:isOnGround() and p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 4 then
+                            p:resetGesture(1)
+                            p:playGesture("CWalk_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 4
+                            end
+                        end
+                        if !p:isOnGround() and holdTypes[players[I]][2] != 5 then
+                            p:resetGesture(1)
+                            p:playGesture("Jump_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 5
+                        end
+                    else
+                        if p:getVelocity():setZ(0):getLength() < 10 and holdTypes[players[I]][2] != 6 then
+                            p:resetGesture(1)
+                            p:playGesture("Swim_Idle_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 6
+                        end
+                        if  p:getVelocity():setZ(0):getLength() >= 10 and holdTypes[players[I]][2] != 7 then
+                            p:resetGesture(1)
+                            p:playGesture("Swimming_"..holdTypes[players[I]][1], true, 1, 1)
+                            holdTypes[players[I]][2] = 7
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    hook.add("Removed", "", function() 
+        local I = 0
+        while I < table.count(players) do I = I + 1
+            local p = find.playersByName(players[I], true, true)[1]
+            ReSetHoldType(p)
+        end
+    end)
+    
     net.receive("sendExp", function()
         local H = hologram.create(net.readVector(), Angle(), "models/hunter/plates/plate.mdl", Vector(0))
         local P = particleEffect.attach(H, "ExplosionCore_MidAir", 0, {})
