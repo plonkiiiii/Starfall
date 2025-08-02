@@ -36,8 +36,10 @@ if SERVER then
                 end
                 canLoad = false
                 ammoAtTheTimeOfStartingLoad = ammo
+                canShoot = false
                 timer.simple(0.33, function()
                 if owner():keyDown(IN_KEY.ATTACK) or ammoAtTheTimeOfStartingLoad+1 < 4 then
+                    canShoot = true
                     if not overload then
                         if ammoAtTheTimeOfStartingLoad + 1 < 4 then
                             ammo = ammo + 1
