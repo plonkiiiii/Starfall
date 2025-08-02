@@ -11,7 +11,7 @@ if SERVER then
     overload = false
     hook.add("tick", "main", function()
         --if owner():getJumpPower() != 300 then owner():setJumpPower(300) end
-        if string.endsWith(tostring(owner():getActiveWeapon()),"none]") then
+        if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not owner():inVehicle() then
             local function Shoot()
                 local P = hologram.create(owner():getEyePos() + Vector(0, -10, -5):getRotated(owner():getEyeAngles()), (owner():getEyeTrace().HitPos-owner():getEyePos()):getAngle(), "models/weapons/w_models/w_rocket.mdl", Vector(0.5))
                 P:setAngles(P:getAngles() + Angle(math.random(-1.5, 1.5),math.random(-1.5, 1.5),math.random(-1.5, 1.5)))
@@ -262,7 +262,7 @@ if CLIENT then
     playingGesture2 = 0
     keystate = 0
     hook.add("think", "the thinker", function()
-        if string.endsWith(tostring(owner():getActiveWeapon()),"none]") then
+        if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not owner():inVehicle() then
             if player() != owner() or camEnabled then
                 if holo != nil and holo:isValid() then
                 Pos, Ang = owner():getAttachment(owner():lookupAttachment("anim_attachment_RH"))
@@ -332,7 +332,7 @@ if CLIENT then
     if player() == owner() then
         local vmHolo2
         hook.add("think", "BazookaVMCreate", function()
-            if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not camEnabled then
+            if string.endsWith(tostring(owner():getActiveWeapon()),"none]") and not owner():inVehicle() and not camEnabled then
             if vmHolo == nil or !vmHolo:isValid() then
                 rot = 90
                 pos = -15
