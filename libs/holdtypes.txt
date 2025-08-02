@@ -18,7 +18,9 @@ if CLIENT then
         --[name] = {holdtype, int}
     }
     function SetHoldType(player, holdtype)
-        holdTypes[player:getName()] = {holdtype, 0}
+        if holdtypes[player:getName()] == nil or holdtypes[player:getName()][1] != holdtype then
+            holdTypes[player:getName()] = {holdtype, 0}
+        end
     end
     function ReSetHoldType(player)
         if holdTypes[player:getName()] != nil then
