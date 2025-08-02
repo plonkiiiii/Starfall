@@ -18,7 +18,7 @@ if CLIENT then
         table.removeByValue(holdTypes, holdTypes[player])
         end
     end
-    hook.add("PlayerConnect", "", function(networkid, name, userid, isbot) table.add(players, {find.playersByName(name, casesensitive, exact)[1]}) end)
+    hook.add("PlayerConnect", "", function(networkid, name, userid, isbot) local tbl = find.playersByName(name, casesensitive, exact) if tbl != nil and tbl[1] != nil and tbl[1]:isPlayer() then table.add(players, {tbl[1]}) end end)
     hook.add("PlayerDisconnect", "", function(networkid, name, userid, isbot) local I = 0 while I < table.count(players) do I = I + 1 if players[I] == nil then table.remove(players, I) I = I - 1 end end end)
     hook.add("think", "thinker", function()
         local I = 0
