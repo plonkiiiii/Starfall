@@ -18,7 +18,7 @@ if SERVER then
                 T:setParent(P)
                 T:setLocalPos(Vector())
                 T:setLocalAngles(Angle())
-                CreateProj(P, 1400, 0, 300/1000*owner():getMaxHealth(), 10, DAMAGE.BLAST, nil, false)
+                CreateProj(P, 1400, 0, (300/1000)*owner():getMaxHealth(), 10, DAMAGE.BLAST, nil, false)
                 owner():emitSound("weapons/doom_rocket_launcher.wav", 75, math.random(90,110), 1, 0)
                 net.start("playerFired")
                 net.send()
