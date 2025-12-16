@@ -1,0 +1,67 @@
+--@name Glumbo Hunt
+--@author pl_onk
+--@shared
+
+if SERVER then
+    enableHud(owner(), true)
+    chip():setNocollideAll(true)
+    function MakeGlumbo()
+        local random = Vector(math.random(-10000, 10000), math.random(-10000, 10000), 0)
+        local pos = navmesh.getNearestNavArea(random, 9999, false, true):getClosestPointOnArea(random)
+        Glumbo = prop.create(pos+Vector(0,0,50), chip():getAngles(), "models/props_c17/furnitureStove001a.mdl", false)
+        ks.enableCombat(Glumbo, true)
+        Glumbo:setMaxHealth(500)
+        Glumbo:setHealth(500)
+    end
+    spawnTime = 0
+    hook.add("PostEntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force, took)
+        if target == Glumbo then Glumbo:setHealth(Glumbo:getHealth() - amount) end
+        if target == Glumbo and Glumbo:getHealth() <= 0 then
+            local p = prop.create(Glumbo:getPos(), Glumbo:getAngles(), "models/props_c17/oildrum001.mdl", true)
+            p:setColor(Color(0,0,0,0))
+            p:breakEnt()
+            if attacker:isPlayer() then
+                concmd("say \"!givemoney "..attacker:getName().." 50\"")
+            end
+            Glumbo:breakEnt()
+            spawnTime = 1
+        end
+    end)
+    hook.add("tick", "", function()
+        if Glumbo != nil and Glumbo:isValid() then
+            net.start("glumbo")
+            net.writeEntity(Glumbo)
+            net.send()
+        else
+            if spawnTime <= 0 then
+                MakeGlumbo()
+            end
+        end
+        spawnTime = spawnTime - game.getTickInterval()
+    end)
+end
+
+if CLIENT then
+    glumbo = nil
+    net.receive("glumbo", function()
+        if glumbo == nil or not glumbo:isValid() then
+            glumbo = net.readEntity()
+            if glumbo != nil and glumbo:isValid() then
+                ks.setKSName(glumbo, "Glumbo")
+                net.start("RemoveGlumbo")
+                net.send(owner())
+            end
+        end
+    end)
+    
+    hook.add("DrawHUD", "", function()
+        if glumbo != nil and glumbo:isValid() then
+            scrW, scrH = render.getResolution()
+            p = glumbo:getPos():toScreen()
+            render.setColor(Color(255,0,0,255))
+            render.drawCircle(p.x, p.y, 20, 5)
+            
+            
+        end
+    end)
+end
