@@ -1,4 +1,4 @@
---@name Glumbo Hunt
+--@name Glumbo
 --@author pl_onk
 --@shared
 
@@ -6,8 +6,9 @@ if SERVER then
     enableHud(owner(), true)
     chip():setNocollideAll(true)
     function MakeGlumbo()
-        local random = Vector(math.random(-10000, 10000), math.random(-10000, 10000), 0)
-        local pos = navmesh.getNearestNavArea(random, 9999, false, true):getClosestPointOnArea(random)
+        local rad = 3000
+        local random = Vector(math.random(-rad, rad), math.random(-rad, rad), math.random(-10000, 10000))
+        local pos = navmesh.getNearestNavArea(random, 50000, false, true):getClosestPointOnArea(random)
         Glumbo = prop.create(pos+Vector(0,0,50), chip():getAngles(), "models/props_c17/furnitureStove001a.mdl", false)
         ks.enableCombat(Glumbo, true)
         Glumbo:setMaxHealth(500)
@@ -17,13 +18,17 @@ if SERVER then
     hook.add("PostEntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force, took)
         if target == Glumbo then Glumbo:setHealth(Glumbo:getHealth() - amount) end
         if target == Glumbo and Glumbo:getHealth() <= 0 then
-            local p = prop.create(Glumbo:getPos(), Glumbo:getAngles(), "models/props_c17/oildrum001.mdl", true)
-            p:setColor(Color(0,0,0,0))
-            p:breakEnt()
-            if attacker:isPlayer() then
-                concmd("say \"!givemoney "..attacker:getName().." 50\"")
+            if Glumbo != nil and Glumbo:isValid() then
+                local p = prop.create(Glumbo:getPos(), Glumbo:getAngles(), "models/props_c17/oildrum001.mdl", true)
+                p:setColor(Color(0,0,0,0))
+                p:breakEnt()
+                if attacker:isPlayer() then
+                    concmd("say \"!givemoney "..attacker:getName().." 50\"")
+                end
+                if Glumbo != nil and Glumbo:isValid() then
+                    Glumbo:remove() 
+                end
             end
-            Glumbo:breakEnt()
             spawnTime = 1
         end
     end)
