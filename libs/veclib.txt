@@ -1,0 +1,20 @@
+--@name veclib
+--@author plonk
+--@shared
+
+if SERVER then
+    function Project(vec, normal)
+        local vector = vec
+        vector = vector-normal*dot(vector, normal)/dot(normal,normal)
+        return vector
+    end
+    function Reflect(vec, normal)
+        local vector = vec
+        vector = vector - 2*(vector*normal)*normal
+    end
+    function dot(v1, v2)
+        return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
+    end
+    function mtow(cur, tar, spd) local spdReal = spd*game.getTickInterval() if cur > tar then spdReal = -spd*game.getTickInterval() end cur = cur + spdReal if math.abs(math.abs(cur)-math.abs(tar)) < spdReal then cur = tar end return cur end
+    function mtowv(cur, tar, spd) cur.x = mtow(cur.x, tar.x, spd) cur.y = mtow(cur.y, tar.y, spd) cur.z = mtow(cur.z, tar.z, spd) return cur end
+end
