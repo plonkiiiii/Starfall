@@ -1,0 +1,262 @@
+--@name Widowmaker
+--@author pl_onk
+--@shared
+--@include libs/holdtypes.txt
+--@include libs/veclib.txt
+require("libs/holdtypes.txt")
+require("libs/veclib.txt")
+
+if SERVER then
+    enableHud(owner(), true)
+    firing = false
+    dps = 400
+    fireRate = 1.67
+    bullets = 6
+    distance = 1000
+    Spread = Vector(1)*0.1
+    lastDamage = 0
+    canFire = true
+    ammo = 200
+    hook.add("tick", "", function()
+        if string.endsWith(tostring(owner():getActiveWeapon()), "none]") and not owner():inVehicle() then
+            if firing and not owner():keyDown(IN_KEY.ATTACK) then
+                firing = false
+            end
+            if not firing and owner():keyDown(IN_KEY.ATTACK) then
+                firing = true
+            end
+            if lastDamage > 0 then lastDamage = lastDamage - game.getTickInterval()*200 end
+            if lastDamage < 0 then lastDamage = 0 end
+            if firing and canFire and ammo >= 30 then
+                ammo = ammo - 30
+                net.start("lostAmmo")
+                net.writeUInt(30, 8)
+                net.send(owner())
+                canFire = false timer.simple(1/fireRate, function() canFire = true end)
+                local isCritical = false
+                if math.random(0, 100) < math.clamp(lastDamage/20/(100/15), 5, 15) then
+                    isCritical = true
+                    lastDamage = 0
+                end
+                net.start("ownerFire") net.writeBool(isCritical) net.send()
+                local n = 1
+                if isCritical then n = 3 end
+                critPlayers = {}
+                game.bulletDamage(owner():getEyePos(), owner():getEyeAngles():getForward(), dps/bullets*n, bullets, 1, distance, Spread, 1, owner(), 
+                function(attacker, result)
+                    if result.Entity != nil and result.Entity:isValid() then 
+                        result.Entity:applyDamage(1, owner(), owner(), DAMAGE.SLASH, result.HitPos)
+                        if isCritical and not table.hasValue(critPlayers, result.Entity) then table.add(critPlayers, {result.Entity}) end
+                    end
+                end)
+                if isCritical and #critPlayers > 0 then
+                    net.start("playerCrit")
+                    net.writeTable(critPlayers)
+                    net.send()
+                end
+            end
+        else
+            if firing then
+                firing = false
+            end
+        end
+        ammo = ammo + game.getTickInterval()*10
+        if ammo > 200 then ammo = 200 end
+        net.start("ammo") net.writeUInt(ammo, 8) net.send(owner())
+    end)
+    
+    hook.add("PostEntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force, took)
+        local flag = target:isPlayer()
+        if target:isVehicle() and target:getDriver() != nil and target:getDriver():isValid() and target:getDriver():isPlayer() then flag = true end
+        if target:isNPC() then flag = true end
+        if ks.isInKillstruct(target) then flag=true end
+        if attacker == owner() and flag then
+            lastDamage = lastDamage + amount
+            if lastDamage > 2000 then lastDamage = 2000 end
+            lastAmmo = ammo
+            ammo = ammo + amount/10
+            ammo = math.round(ammo)
+            if ammo-lastAmmo > 0 then
+                net.start("gotAmmo")
+                net.writeUInt(ammo-lastAmmo, 8)
+                net.send(owner())
+            end
+        end
+    end)
+else
+    DebuggingWM = false
+    
+    jolly = false
+    
+    wm = nil
+    vm = nil
+    
+    ownerOnWeapon = false
+    
+    net.receive("playerCrit", function()
+        if particle.particleEmittersLeft() > 0 then
+            local t = net.readTable()
+            for i, p in ipairs(t) do
+                local h = hologram.create(p:getPos()+p:obbMaxs():setX(0):setY(0), Angle(), "models/sprops/misc/empty.mdl", Vector())
+                local pa = particleEffect.attach(h, "crit_text", PATTACH.POINT_FOLLOW, {})
+                timer.simple(1, function() h:remove() pa:destroy() end)
+                if player() == p then
+                    h:emitSound("player/crit_received"..math.round(math.random(1,3))..".wav", 75, 100, 1, 1, 1, false)
+                end
+            end
+        end
+    end)
+    
+    hook.add("Removed", "", function() ReSetHoldType(owner()) end)
+    
+    net.receive("ownerFire", function()
+        local crit = net.readBool()
+        if player() != owner() or DebuggingWM then
+            owner():playGesture("Range_Shotgun", false, 5, 1)
+            if not crit then
+                owner():emitSound("^weapons/widow_maker_shot_0"..math.round(math.random(1,3))..".wav", 75,  math.random(95,105), 1, 1, 1, false)
+            else
+                owner():emitSound("^weapons/widow_maker_shot_crit_0"..math.round(math.random(1,3))..".wav", 75, math.random(95,105), 1, 1, 1, false)
+            end
+        end
+        if player() == owner() and not DebuggingWM then
+            vm:setAnimation("Fj_Fire_Alt", 0, 1)
+            timer.simple(0.5, function()
+                if vm != nil and vm:isValid() then
+                    vm:setAnimation("Fj_Idle",0,1)
+                end
+            end)
+            if not crit then
+                owner():emitSound("weapons/widow_maker_shot_0"..math.round(math.random(1,3))..".wav", 75,  math.random(95,105), 0.4, 1, 1, false)
+            else
+                owner():emitSound("weapons/widow_maker_shot_crit_0"..math.round(math.random(1,3))..".wav", 75,  math.random(95,105), 0.4, 1, 1, false)
+            end
+        end
+    end)
+    
+    hook.add("Think", "", function() 
+        if owner() == nil or not owner():isValid() then return end if owner():getActiveWeapon() == nil then return end
+        if string.endsWith(tostring(owner():getActiveWeapon()), "none]") and not owner():inVehicle() then
+            if not ownerOnWeapon then
+                ownerOnWeapon = true
+                SetHoldType(owner(), "shotgun")
+            end
+        end
+        if not string.endsWith(tostring(owner():getActiveWeapon()), "none]") or owner():inVehicle() then
+            if ownerOnWeapon then
+                ownerOnWeapon = false
+                ReSetHoldType(owner())
+                if ownerFiring then
+                    ownerFiring = false
+                end
+            end
+        end
+        if ownerOnWeapon then
+            if player() == owner() and not DebuggingWM then
+                if vm == nil or not vm:isValid() then
+                    vm = hologram.create(render.getEyePos(), render.getAngles(), "models/weapons/c_models/c_engineer_arms.mdl", Vector(1))
+                    vm:setRenderGroup(RENDERGROUP.VIEWMODEL)
+                    vm:setAnimation("Fj_Draw", 0, 1)
+                    timer.simple(0.5, function()
+                        if vm != nil and vm:isValid() then
+                            vm:setAnimation("Fj_Idle",0,1)
+                        end
+                    end)
+                    
+                    vm2 = hologram.create(Vector(), Angle(), "models/weapons/c_models/c_dex_shotgun/c_dex_shotgun.mdl", Vector(1.2))
+                    local Pos, Ang = vm:getBonePosition(vm:lookupBone("weapon_bone"))
+                    vm2:setPos(Pos)
+                    vm2:setAngles(Ang)
+                    vm2:setAngles(vm2:localToWorldAngles(Angle(-90,-90,0)))
+                    vm2:setAngles(vm2:localToWorldAngles(Angle(0,0,0)))
+                    vm2:setRenderGroup(RENDERGROUP.VIEWMODEL)
+                    vm2:setParent(vm, nil, vm:lookupBone("weapon_bone"))
+                    
+                    if jolly then
+                        vm3 = hologram.create(vm2:getPos(), vm2:getAngles(), "models/weapons/c_models/c_flamethrower/c_flamethrower_festivizer.mdl", Vector(0.75))
+                        vm3:setParent(vm2)
+                        vm3:setRenderGroup(RENDERGROUP.VIEWMODEL)
+                    end
+                else
+                    vm:setPos(render.getEyePos()+Vector(15,3,-5):getRotated(render.getAngles()))
+                    vm:setAngles(render.getAngles())
+                    if vm2:getParent() == nil or not vm2:getParent():isValid() then
+                        local Pos, Ang = vm:getBonePosition(vm:lookupBone("weapon_bone"))
+                        vm2:setPos(Pos)
+                        vm2:setAngles(Ang)
+                        vm2:setAngles(vm2:localToWorldAngles(Angle(-90,-90,0)))
+                        vm2:setParent(vm, nil, vm:lookupBone("weapon_bone"))
+                    end
+                end
+            end
+            if player() != owner() or DebuggingWM then
+                if wm == nil or not wm:isValid() then
+                    wm = hologram.create(owner():getPos(), owner():getEyeAngles(), "models/weapons/c_models/c_dex_shotgun/c_dex_shotgun.mdl", Vector(0.75))
+                    if jolly then
+                        vm3 = hologram.create(wm:getPos(), wm:getAngles(), "models/weapons/c_models/c_flamethrower/c_flamethrower_festivizer.mdl", Vector(0.75))
+                        vm3:setParent(wm)
+                    end
+                else
+                    local Pos, Ang = owner():getAttachment(owner():lookupAttachment("anim_attachment_RH"))
+                    wm:setPos(Pos)
+                    wm:setAngles(Ang)
+                    wm:setAngles(wm:localToWorldAngles(Angle(-15,-3,0)))
+                end
+            end
+        else
+            if vm != nil and vm:isValid() then vm:remove() vm2:remove() if jolly then vm3:remove() end end
+            if wm != nil and wm:isValid() then wm:remove() if jolly then vm3:remove() end end
+        end
+    end)
+        
+    if player() == owner() then
+        hook.add("PreDrawViewModels", "", function()
+            if vm != nil and vm:isValid() then
+                vm:setPos(render.getEyePos()+Vector(15,3,-5):getRotated(render.getAngles()))
+                vm:setAngles(render.getAngles())
+                
+                /*local Pos, Ang = vm:getBonePosition(vm:lookupBone("weapon_bone"))
+                vm2:setPos(Pos)
+                vm2:setAngles(Ang)
+                vm2:setAngles(vm2:localToWorldAngles(Angle(-90,-90,0)))
+                vm2:setAngles(vm2:localToWorldAngles(Angle(0,3,0)))*/
+            end
+        end)
+        ammo = 200
+        net.receive("ammo", function()
+            ammo = net.readUInt(8)
+        end)
+        popups = {
+            --{life, text, neg}
+        }
+        net.receive("gotAmmo", function()
+            table.add(popups, {{1, net.readUInt(8), false}})
+        end)
+        net.receive("lostAmmo", function()
+            table.add(popups, {{1, net.readUInt(8), true}})
+        end)
+        hook.add("DrawHUD", "", function() 
+            scrW , scrH = render.getResolution()
+            
+            render.setFont("DermaLarge")
+            local w, h = render.getTextSize(tostring(ammo))
+            render.drawText(scrW/2-w/2, scrH/2+h, tostring(ammo), TEXT_ALIGN.TOP)
+            if #popups == 0 then return end
+            for i, p in ipairs(popups) do
+                p[1] = p[1] - timer.frametime()
+                if p[1] > 0 then
+                    if p[3] then
+                        render.setColor(Color(255,255*(1-p[1]),255*(1-p[1]),255*p[1]))
+                    else
+                        render.setColor(Color(255*(1-p[1]),255,255*(1-p[1]),255*p[1]))
+                    end
+                    w, h = render.getTextSize(tostring(p[2]))
+                    local s = "+" if p[3] then s = "-" end
+                    render.drawText(scrW/2-w/2, scrH/2+h-100*(1-p[1]), s..tostring(p[2]), TEXT_ALIGN.TOP)
+                else
+                    table.remove(popups, i)
+                end
+            end
+        end)
+    end
+end
