@@ -18,6 +18,22 @@ if SERVER then
     lastDamage = 0
     canFire = true
     ammo = 200
+    
+    autoaim = 30
+    
+    hook.add("PlayerSpawn", "", function(ply) 
+        if ply == owner() then
+            ammo = 200
+            lastDamage = 0
+        end
+    end)
+    
+    hook.add("PlayerDeath", "", function(ply, inflictor, attacker) 
+        if ply != owner() and attacker == owner() then
+            
+        end
+    end)
+    
     hook.add("tick", "", function()
         if string.endsWith(tostring(owner():getActiveWeapon()), "none]") and not owner():inVehicle() then
             if firing and not owner():keyDown(IN_KEY.ATTACK) then
@@ -44,11 +60,36 @@ if SERVER then
                 if isCritical then n = 3 end
                 critPlayers = {}
                 boullets = {}
-                game.bulletDamage(owner():getEyePos(), owner():getEyeAngles():getForward(), dps/bullets*n, bullets, 1, distance, Spread, 1, owner(), 
+                
+                dir = owner():getEyeAngles():getForward()
+                if autoaim > 0 then
+                    local players = find.allPlayers(function(e) return e != owner() end)
+                    ang = 999
+                    ply = nil
+                    for i, p in ipairs(players) do
+                        local Tr = trace.line(owner():getEyePos(), p:obbCenterW(), owner(), nil, COLLISION_GROUP.PLAYER, false, false)
+                        local flag = !Tr.Hit
+                        if Tr.Hit and Tr.HitPos:getDistance(p:obbCenterW()) < 200 then flag = true end
+                        if Tr.Entity != nil and Tr.Entity:isValid() then
+                            if Tr.Entity == p then flag = true end
+                            if Tr.Entity:isVehicle() and Tr.Entity:getDriver() != nil and Tr.Entity:getDriver():isValid() and Tr.Entity:getDriver() == p then flag = true end
+                        end
+                        if dir:getDistance((p:obbCenterW()-owner():getEyePos()):getNormalized())*180 < ang and flag then
+                            ang = dir:getDistance((p:obbCenterW()-owner():getEyePos()):getNormalized())*180
+                            ply = p
+                        end
+                    end
+                    if ang < autoaim then dir = (ply:obbCenterW()-owner():getEyePos()):getNormalized() end 
+                end
+                
+                game.bulletDamage(owner():getEyePos(), dir, dps/bullets*n, bullets, 1, distance, Spread, 1, owner(), 
                 function(attacker, result)
                     if result.Entity != nil and result.Entity:isValid() then 
                         result.Entity:applyDamage(1, owner(), owner(), DAMAGE.SLASH, result.HitPos)
-                        if isCritical and not table.hasValue(critPlayers, result.Entity) then table.add(critPlayers, {result.Entity}) end
+                        local flag = result.Entity:isPlayer()
+                        if result.Entity:isVehicle() and result.Entity():getDriver() != nil and result.Entity():getDriver():isValid() and result.Entity():getDriver():isPlayer() then flag = true end
+                        if result.Entity:isNPC() or result.Entity:getClass() == "bs_gear_multi" then flag = true end
+                        if isCritical and not table.hasValue(critPlayers, result.Entity) and flag then table.add(critPlayers, {result.Entity}) end
                     end
                     local ep = result.EndPos
                     if result.Hit then ep = result.HitPos end
@@ -81,7 +122,7 @@ if SERVER then
     hook.add("PostEntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force, took)
         local flag = target:isPlayer()
         if target:isVehicle() and target:getDriver() != nil and target:getDriver():isValid() and target:getDriver():isPlayer() then flag = true end
-        if target:isNPC() then flag = true end
+        if target:isNPC() or target:getClass() == "bs_gear_multi" then flag = true end
         if ks.isInKillstruct(target) then flag=true end
         if attacker == owner() and flag then
             lastDamage = lastDamage + amount
