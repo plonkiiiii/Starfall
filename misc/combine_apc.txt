@@ -1,0 +1,388 @@
+--@name APC
+--@author pl_onk
+--@shared
+//Settings
+if SERVER then Debugging = false end
+if SERVER then DisAnim = false end
+if CLIENT then CDisabled = false end
+if SERVER then
+    Susforce = 5
+    Suslen = 10
+    Susoff = 30
+    SpeedNormal = 75
+    SpeedSlow = 37.5
+    Accel = 2
+    WheelSpeed = 10 
+    vehicleHP = 4000
+    repairHP = 2000
+    repairWeapon = "weapon_crowbar" //what weapon you need to hit the gibs with to repair the vehicle
+    
+    FireRate = 600 //Rounds per minute
+    BulletDamage = 50
+    BulletSpread = 5 //Degrees
+    end
+if CLIENT or SERVER then
+    useKSLib = true
+end
+//The Good Stuff
+if SERVER then
+    Dead = false
+    
+    local QuickCubes = {
+      --{L,W,H,Origin}
+        {160,80,70,Vector(0,0,65)},
+        {30,60,40,Vector(90,0,45)},
+        {40,60,50,Vector(-100,0,55)},
+    }
+    
+    function CreateHitbox(tblQC)
+        local supertable = {}
+        for i,v in pairs(tblQC) do
+            tbl = {
+                Vector(tblQC[i][1]/2,tblQC[i][2]/2,tblQC[i][3]/2)+tblQC[i][4],Vector(-tblQC[i][1]/2,tblQC[i][2]/2,tblQC[i][3]/2)+tblQC[i][4],Vector(tblQC[i][1]/2,-tblQC[i][2]/2,tblQC[i][3]/2)+tblQC[i][4],Vector(-tblQC[i][1]/2,-tblQC[i][2]/2,tblQC[i][3]/2)+tblQC[i][4],
+                Vector(tblQC[i][1]/2,tblQC[i][2]/2,-tblQC[i][3]/2)+tblQC[i][4],Vector(-tblQC[i][1]/2,tblQC[i][2]/2,-tblQC[i][3]/2)+tblQC[i][4],Vector(tblQC[i][1]/2,-tblQC[i][2]/2,-tblQC[i][3]/2)+tblQC[i][4],Vector(-tblQC[i][1]/2,-tblQC[i][2]/2,-tblQC[i][3]/2)+tblQC[i][4]
+            }
+            
+            supertable[i] = tbl
+        end
+        return prop.createCustom(chip():getPos(),Angle(),table.add(supertable,CustomMesh),Debugging)
+    end
+    
+    Hitbox = CreateHitbox(QuickCubes)
+    Hitbox:setMass(5000)
+    Hitbox:setPhysMaterial("metalvehicle")
+    Hitbox:setColor(Color(0,0,0,0))
+    Holo = hologram.create(Hitbox:localToWorld(Vector()), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/combine_apc.mdl", Vector(1))
+    Holo:setParent(Hitbox)
+    /*for i=0, Holo:getBoneCount() do
+        print(Holo:getBoneName(i))
+    end*/
+    //Holo:manipulateBoneScale(Holo:lookupBone("APC.Gun_Base"), Vector())
+    
+    Holo:setAnimation("Idle", 0, 1)
+    
+    Holo2 = {
+        ["wheel_fl"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_fr"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_rl"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_rr"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_fl2"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_fr2"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_rl2"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wheel_rr2"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["trPos"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/bone_from_x.mdl", Vector(1)),
+        ["wpos"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/cube_from_z.mdl", Vector(1)),
+    }
+    Holo2["wpos"]:setColor(Color(255,0,255,255))
+    for i, h in pairs(Holo2) do h:setColor(Color(255,255,255,0)) end
+    
+    Seat = prop.createSeat(Hitbox:localToWorld(Vector(-15,0,82)), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/props_phx/carseat3.mdl", true)
+    constraint.weld(Seat, Hitbox, nil, nil, 0, true)
+    Seat:setColor(Color(0,0,0,0))
+    Seat:setCollisionGroup(COLLISION_GROUP.DISSOLVING)
+    
+    Hitbox:setFrozen(false)
+    Seat:setFrozen(false)
+    
+    Hitbox:setMaxHealth(vehicleHP)
+    Hitbox:setHealth(vehicleHP)
+    if useKSLib then
+    ks.enableCombat(Hitbox, true) end
+    
+    hook.add("PlayerUse", "", function(ply, ent) 
+        if ply:getVehicle() != Seat and ent == Hitbox then ply:enterVehicle(Seat) end
+    end)
+end
+if SERVER then
+    Turn = 0
+    driver = nil
+    Spin = {["wheel_fl"] = 0, ["wheel_fr"] = 0, ["wheel_rl"] = 0, ["wheel_rr"] = 0}
+    Throt = 0
+    Speed = 0
+    idling = true
+    tick = 0
+    hitAllWheels = false
+    firetime = 0
+    hook.add("tick", "main", function()
+        firetime = mtow(firetime, -1, 1)
+        if useKSLib then
+        net.start("Name") net.writeEntity(Hitbox) net.writeString("Combine APC") net.send() end
+        if Dead then Hitbox:setPos(Vector()) Seat:setPos(Vector()) Hitbox:setFrozen(true) Seat:setFrozen(true) Holo:setColor(Color(0,0,0,0)) return end
+        if #Gibs > 0 then
+            for i, e in ipairs(Gibs) do e:remove() table.remove(Gibs, i) end
+        end
+        Holo:setColor(Color(255,255,255,255))
+        tick = tick + game.getTickInterval()*5
+        tick = tick % 512
+        local Physbox = Hitbox:getPhysicsObject()
+        local pv = Vector()
+        local av = Vector()
+        local hit = false
+        local function kn(key) if driver:keyDown(key) then return 1 else return 0 end end
+        local function MakeTrace(wheel)
+            local Pos = Hitbox:obbMaxs():setZ(0)
+            if wheel == "wheel_rl" or wheel == "wheel_rr" then Pos:setX(-Pos.x) end
+            if wheel == "wheel_fr" or wheel == "wheel_rr" then Pos:setY(-Pos.y) end
+            Pos = Hitbox:localToWorld(Pos)
+            local Tr = trace.line(Pos+Hitbox:getUp()*Susoff, Pos-Hitbox:getUp()*Suslen, {Hitbox, Seat, driver}, nil, COLLISION_GROUP.PLAYER, false,false)
+            Holo2[wheel]:setPos(Tr.HitPos)
+            Holo2[wheel.."2"]:setPos(Tr.StartPos)
+            local Fract = Tr.Fraction
+            Fract = math.clamp(Fract, 0, 1)
+            Fract = Fract * Fract
+            if Tr.FractionLeftSolid > 0 then Fract = 1 end
+            if Fract == 1 and hitAnyWheels then Fract = 2 end
+            local Mult = (1-Fract)
+            local pVel, aVel = Physbox:calculateVelocityOffset(Hitbox:getUp()*Susforce*Mult*5000, Pos)
+            pv = pv + pVel
+            av = av + aVel
+            if Tr.Hit then hit = true end
+            Holo:setPose("vehicle_"..wheel.."_height", Fract)
+            if Tr.Hit then
+                Spin[wheel] = Spin[wheel] + game.getTickInterval()*Throt*WheelSpeed
+                if Spin[wheel] > 180 then Spin[wheel] = -180 end
+            end
+            Holo:setPose("vehicle_"..wheel.."_spin", Spin[wheel])
+        end
+        hitAnyWheels = hit
+        // wheel_fl wheel_rl wheel_fr wheel_rr
+        
+        MakeTrace("wheel_fl")
+        MakeTrace("wheel_rl")
+        MakeTrace("wheel_fr")
+        MakeTrace("wheel_rr")
+        if hit then
+            Physbox:setVelocity(Physbox:getVelocity()*0.9)
+            Physbox:setAngleVelocity(Physbox:getAngleVelocity()*0.7)
+        end
+        
+        if driver != nil and driver:isValid() and driver:getVehicle() == Seat and hit then
+            local Dir = (kn(IN_KEY.FORWARD)-kn(IN_KEY.BACK))
+            local ang = Angle(0,-Turn/45*15,0)
+            local pos = Hitbox:obbCenterW()+Hitbox:getUp()+Hitbox:getForward()*Hitbox:obbMaxs().x
+            local pVel, aVel = Physbox:calculateVelocityOffset(Hitbox:getForward():getRotated(ang)*Throt*5000, pos)
+            pv = pv + pVel
+            av = av + aVel
+        end
+        
+        Physbox:addVelocity(pv)
+        Physbox:addAngleVelocity(av)
+    
+        if Seat:getDriver() == nil or not Seat:getDriver():isValid() then Throt = 0 if driver != nil and driver:isValid() and driver:isHUDActive() then enableHud(driver, false) Hitbox:emitSound("^vehicles/apc/apc_shutdown.wav", 75, 100, 1, 1, 1, false) driver = nil end return end
+        if driver == nil or not driver:isValid() or driver != Seat:getDriver() then Hitbox:emitSound("^vehicles/apc/apc_start_loop3.wav", 75, 100, 1, 1, 1, false) end
+        driver = Seat:getDriver()
+        if driver:keyDown(IN_KEY.SPEED) then Speed = SpeedSlow else Speed = SpeedNormal end
+        if not driver:isHUDActive() then enableHud(driver, true) end
+        local t = kn(IN_KEY.MOVERIGHT)-kn(IN_KEY.MOVELEFT)
+        Turn = math.lerp(0.1, Turn, t*(45/math.clamp(Throt/50, 1, Speed)))
+        local t2 = kn(IN_KEY.FORWARD)-kn(IN_KEY.BACK)
+        if not idling and t2 == 0 then
+            Hitbox:emitSound("^vehicles/apc/apc_slowdown_fast_loop5.wav", 75, 100, 1, 1, 1, false)
+            idling = true
+        end
+        if idling and t2 != 0 then
+            Hitbox:emitSound("^vehicles/apc/apc_cruise_loop3.wav", 75, 100, 1, 1, 1, false)
+            idling = false
+        end
+        if math.abs(Throt) < math.abs(t2*Speed) then
+            Throt = mtow(Throt, t2*Speed, Speed/Accel)
+        else
+            Throt = mtow(Throt, t2*Speed, Speed)
+        end
+        
+        Holo:setPose("vehicle_steer", Turn/45)//+math.sin(tick)*2/45)
+        f = {Hitbox, Seat, driver}
+        local filter = f
+        
+        net.start("Filter")
+        net.writeTable(filter)
+        net.writeEntity(driver)
+        net.send(driver)
+        
+        local WeaponPos, WeaponAng = Holo:getBonePosition(Holo:lookupBone("APC.Gun_Base"))
+        
+        Holo:setPose("vehicle_weapon_yaw", Hitbox:worldToLocalAngles(eyeA(WeaponPos)).y)
+        Holo:setPose("vehicle_weapon_pitch", math.clamp(Hitbox:worldToLocalAngles(eyeA(WeaponPos)).p, -45, 20))
+        
+        local Ang2 = Hitbox:worldToLocalAngles(driver:getEyeAngles()-Hitbox:getAngles()).y
+        local Pos = Hitbox:obbCenterW()+Hitbox:getUp()*Hitbox:obbMaxs().z/2
+        local vec1 = Hitbox:worldToLocalAngles(driver:getEyeAngles()):setP(0):setR(0):getForward()
+        local n = 1
+        if Ang2 > 0 then n = -1 end
+        local n2 = 1
+        if Ang2 > -90 and Ang2 < 90 then n2 = -1 end
+        Pos = Pos + n*Hitbox:getForward()*Hitbox:obbMaxs().x/2*math.min(vec1:getDistance(Hitbox:getForward()), vec1:getDistance(-Hitbox:getForward()))
+        Pos = Pos + n2*Hitbox:getRight()*Hitbox:obbMaxs().y/2*(1-math.min(vec1:getDistance(Hitbox:getForward()), vec1:getDistance(-Hitbox:getForward())))
+        Holo2["wpos"]:setPos(Pos)
+    
+        if firetime <= 0 and driver:keyDown(IN_KEY.ATTACK) then
+            local dir = (eyeTr().HitPos-Pos)
+            local ang = Hitbox:worldToLocalAngles(dir:getAngle())
+            ang:setP(math.clamp(ang.p, -45, 30))
+            ang:setR(math.clamp(ang.p, -45, 30))
+            ang = Hitbox:localToWorldAngles(ang)
+            dir = ang:getForward()
+            game.bulletDamage(Pos, dir, BulletDamage, 1, 50, 32768, Vector(BulletSpread)/180, 1, Hitbox, nil)
+            Holo:emitSound("^weapons/ar2/fire1.wav", 75, math.random(90,110), 1, 1, 1, false)
+            firetime = 60/FireRate
+        end
+    end)
+    
+    f = {}
+    
+    function eyeA(pos)
+        f = {Hitbox, Seat, driver}
+        local Tr2 = eyeTr()
+        local angle = Angle(0)
+        if Tr2.Hit then
+        angle = (Tr2.HitPos-pos):getAngle()
+        else
+        angle = Seat:worldToLocalAngles(driver:getEyeAngles())
+        end
+        
+        return angle
+    end
+    
+    function eyeAng(e) e:setAngles(eyeA(e:getPos())) end
+    
+    function eyeRV()
+        return driver:getEyePos()
+    end
+    
+    function eyeTr()
+        f = {Hitbox, Seat, driver}
+        local Tr = trace.line(driver:getEyePos(), driver:getEyePos()+Seat:worldToLocalAngles(driver:getEyeAngles()):getForward()*32768, {Hitbox, Seat, driver}, nil, COLLISION_GROUP.PLAYER, false, false)
+        Holo2["trPos"]:setPos(Tr.HitPos)
+        Holo2["trPos"]:setAngles(Tr.HitNormal:getAngle())
+        return Tr
+    end
+    
+    Gibs = {}
+    
+    function RemoveGibs()
+        for i, e in ipairs(Gibs) do e:remove() table.remove(Gibs, i) end
+        Gibs = {}
+    end
+    
+    hook.add("PostEntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force, took) 
+        if target == Hitbox then
+            Hitbox:setHealth(Hitbox:getHealth()-amount)
+            if Hitbox:getHealth() <= 0 then
+                RemoveGibs()
+                for i=1, 6 do
+                    local P = prop.create(Holo:localToWorld(Vector(0,0,25)), Holo:localToWorldAngles(Angle(0,0,0)), "models/combine_apc_destroyed_gib0"..i..".mdl", false)
+                    P:getPhysicsObject():setVelocity(Hitbox:getPhysicsObject():getVelocity())
+                    P:getPhysicsObject():setAngleVelocity(Hitbox:getPhysicsObject():getAngleVelocity())
+                    if i > 1 then
+                        P:getPhysicsObject():addVelocity((Hitbox:getPos()-P:obbCenterW()):getNormalized()*100)
+                    end
+                    if i == 1 then
+                        P:setHealth(0)
+                        P:setMaxHealth(repairHP)
+                        if useKSLib then
+                        ks.enableCombat(P, true)
+                        net.start("Name") net.writeEntity(P) net.writeString("Combine APC (Broken)") net.send() end
+                    end
+                    table.add(Gibs, {P})
+                end
+                local P = prop.create(Holo:localToWorld(Vector(0,0,25)), Holo:localToWorldAngles(Angle(0,0,0)), "models/props_c17/oildrum001_explosive.mdl", false) P:breakEnt()
+                Dead = true
+                Hitbox:setPos(Vector())
+                Hitbox:setFrozen(true)
+                Hitbox:setHealth(vehicleHP)
+                if driver != nil and driver:isValid() then driver:kill() end
+            end
+        end
+    end)
+    
+    hook.add("EntityTakeDamage", "", function(target, attacker, inflictor, amount, type, position, force)
+        if #Gibs > 0 and Dead then
+            if target == Gibs[1] and attacker == owner() and inflictor:getClass() == repairWeapon then
+                Gibs[1]:setHealth(Gibs[1]:getHealth()+amount)
+                if Gibs[1]:getHealth() >= Gibs[1]:getMaxHealth() then
+                    ks.enableCombat(Gibs[1], false)
+                    Dead = false
+                    Hitbox:setFrozen(false)
+                    Seat:setFrozen(false)
+                    Hitbox:setPos(Gibs[1]:getPos())
+                    Seat:setPos(Gibs[1]:getPos())
+                end
+            end
+        end
+    end)
+end
+//The Not Good Stuff
+if SERVER then
+    function ts(v) return tostring(v) end
+
+    function cn(e) if e != nil and e:isValid() then return true else return false end end
+        
+    function mtow(cur, tar, spd) local spdReal = spd*game.getTickInterval() if cur > tar then spdReal = -spd*game.getTickInterval() end cur = cur + spdReal if math.abs(math.abs(cur)-math.abs(tar)) < spdReal then cur = tar end return cur end
+    
+    function mtowv(cur, tar, spd) cur.x = mtow(cur.x, tar.x, spd) cur.y = mtow(cur.y, tar.y, spd) cur.z = mtow(cur.z, tar.z, spd) return cur end
+    
+    function mtowa(cur, tar, spd) cur.p = mtow(cur.p, tar.p, spd) cur.y = mtow(cur.y, tar.y, spd) cur.r = mtow(cur.r, tar.r, spd) return cur end
+    
+    function lrp(cur, tar, spd) math.lerp(spd, cur, tar) end
+end
+//The Clientside Stuff
+if CLIENT then
+    
+    net.receive("Name", function()
+        local ent = net.readEntity()
+        if ent != nil and ent:isValid() then
+            if ent:getClass() == "prop_physics" and player() != owner() then return end
+            ks.setKSName(ent, net.readString())
+        end
+    end)
+    
+    relativePos = Vector(0, 0, 0)
+    
+    ignlist = {}
+    
+    net.receive("Filter", function()
+        ignlist = net.readTable()
+    end)
+    
+    hook.add("calcview", "view calc", function()
+        if not CDisabled then
+            local driver = player()
+            local Tr = trace.line(driver:getEyePos(), driver:getEyePos()+(relativePos):getRotated(driver:getEyeAngles()), ignlist, nil, "COLLISION.GROUP_PLAYER", nil)
+            local rotatevec = Vector(0)
+            if Tr.Hit then
+            rotatevec = Tr.HitPos-(relativePos/10):getRotated(driver:getEyeAngles())  
+            else
+            rotatevec = driver:getEyePos()+(relativePos):getRotated(driver:getEyeAngles())
+            end
+            local Tr2 = trace.line(rotatevec, rotatevec+Vector(10000,0,0):getRotated(driver:getEyeAngles()), ignlist, nil, "COLLISION.GROUP_PLAYER", nil)
+            local angle = Angle(0)
+            if Tr2.Hit then
+            angle = (Tr2.HitPos-rotatevec):getAngle()
+            else
+            angle = driver:getEyeAngles()
+            end
+            local drawViewer = false
+            
+            local fov = 90
+            
+            local view = {
+                origin = rotatevec,
+                angles = angle,
+                drawviewer = drawViewer,
+                fov = fov
+            }
+            return view 
+        end
+    end)
+    
+    hook.add("drawhud", "HUD", function() 
+        if render.isHUDActive() then
+            scrW, scrH = render.getResolution()
+            render.setColor(Color(0,0,0,255))
+            render.drawFilledCircle(scrW/2, scrH/2, 3/((1920+1080)/2)*((scrW+scrH)/2)) 
+
+            render.setColor(Color(255,255,255,255))
+            render.drawFilledCircle(scrW/2, scrH/2, 2/((1920+1080)/2)*((scrW+scrH)/2))     
+        end
+    end)
+end
