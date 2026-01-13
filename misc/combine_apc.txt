@@ -392,7 +392,7 @@ if CLIENT then
                 ApcLight:setFarZ(0)
                 ApcLight:setNearZ(0)
                 ApcLight:setPos(Vector())
-                ApcLight:setAngles(Vector())
+                ApcLight:setAngles(Angle())
                 ApcLight:update()
             end
         end
