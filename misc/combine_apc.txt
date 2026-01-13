@@ -184,7 +184,12 @@ if SERVER then
             Hitbox:emitSound("^vehicles/apc/apc_cruise_loop3.wav", 75, 100, 1, 1, 1, false)
             idling = false
         end
-        if math.abs(Throt) < math.abs(t2*Speed) then
+        local flag = false
+        if Throt < t2*Speed and t2*Speed > 0 then flag = true end
+        if Throt > t2*Speed and t2*Speed < 0 then flag = true end
+        if Throt < 0 and t2*Speed > 0 then flag = false end
+        if Throt > 0 and t2*Speed < 0 then flag = false end
+        if flag then
             Throt = mtow(Throt, t2*Speed, Speed/Accel)
         else
             Throt = mtow(Throt, t2*Speed, Speed)
