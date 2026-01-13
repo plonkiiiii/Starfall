@@ -391,6 +391,8 @@ if CLIENT then
             if ApcLight != nil and ApcLight:isValid() and ApcLight:getFarZ() > 0 then
                 ApcLight:setFarZ(0)
                 ApcLight:setNearZ(0)
+                ApcLight:setPos(Vector())
+                ApcLight:setAngles(Vector())
                 ApcLight:update()
             end
         end
