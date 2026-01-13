@@ -52,11 +52,12 @@ if SERVER then
     Hitbox:setMass(5000)
     Hitbox:setPhysMaterial("metalvehicle")
     Hitbox:setColor(Color(0,0,0,0))
+    Hitbox:setDrawShadow(false)
+    Hitbox:setMaterial("models/debug/debugwhite")
     Holo = hologram.create(Hitbox:localToWorld(Vector()), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/combine_apc.mdl", Vector(1))
     Holo:setParent(Hitbox)
-    /*for i=0, Holo:getBoneCount() do
-        print(Holo:getBoneName(i))
-    end*/
+    Holo:setDrawShadow(true)
+    //print(table.toString(Holo:getAttachments()))
     //Holo:manipulateBoneScale(Holo:lookupBone("APC.Gun_Base"), Vector())
     
     Holo:setAnimation("Idle", 0, 1)
@@ -74,8 +75,7 @@ if SERVER then
         ["wpos"] = hologram.create(Hitbox:getPos(), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/sprops/misc/cube_from_z.mdl", Vector(1)),
     }
     Holo2["wpos"]:setColor(Color(255,0,255,255))
-    for i, h in pairs(Holo2) do h:setColor(Color(255,255,255,0)) end
-    
+    for i, h in pairs(Holo2) do h:setColor(Color(255,255,255,0)) h:setScale(Vector()) end
     Seat = prop.createSeat(Hitbox:localToWorld(Vector(-15,0,82)), Hitbox:localToWorldAngles(Angle(0,-90,0)), "models/props_phx/carseat3.mdl", true)
     constraint.weld(Seat, Hitbox, nil, nil, 0, true)
     Seat:setColor(Color(0,0,0,0))
@@ -87,7 +87,7 @@ if SERVER then
     Hitbox:setMaxHealth(vehicleHP)
     Hitbox:setHealth(vehicleHP)
     if useKSLib then
-    ks.enableCombat(Hitbox, true) end
+    ks.enableCombat(Hitbox, true) net.start("Name") net.writeEntity(Hitbox) net.writeString("Combine APC") net.send() end
     
     hook.add("PlayerUse", "", function(ply, ent) 
         if ply:getVehicle() != Seat and ent == Hitbox then ply:enterVehicle(Seat) end
@@ -103,10 +103,12 @@ if SERVER then
     tick = 0
     hitAllWheels = false
     firetime = 0
+    Light = false
+    keydown = false
     hook.add("tick", "main", function()
         firetime = mtow(firetime, -1, 1)
-        if useKSLib then
-        net.start("Name") net.writeEntity(Hitbox) net.writeString("Combine APC") net.send() end
+        //net.start("Name") net.writeEntity(Hitbox) net.writeString("Combine APC") net.send()
+        net.start("Apc") net.writeEntity(Hitbox) net.writeEntity(Holo) net.writeBool(Light) if driver != nil and driver:isValid() then net.writeEntity(driver) end net.send()
         if Dead then Hitbox:setPos(Vector()) Seat:setPos(Vector()) Hitbox:setFrozen(true) Seat:setFrozen(true) Holo:setColor(Color(0,0,0,0)) return end
         if #Gibs > 0 then
             for i, e in ipairs(Gibs) do e:remove() table.remove(Gibs, i) end
@@ -168,9 +170,15 @@ if SERVER then
         Physbox:addVelocity(pv)
         Physbox:addAngleVelocity(av)
     
-        if Seat:getDriver() == nil or not Seat:getDriver():isValid() then Throt = 0 if driver != nil and driver:isValid() and driver:isHUDActive() then enableHud(driver, false) Hitbox:emitSound("^vehicles/apc/apc_shutdown.wav", 75, 100, 1, 1, 1, false) driver = nil end return end
+        if Seat:getDriver() == nil or not Seat:getDriver():isValid() then Throt = 0 if driver != nil and driver:isValid() and driver:isHUDActive() then keydown = false Light = false enableHud(driver, false) Hitbox:emitSound("^vehicles/apc/apc_shutdown.wav", 75, 100, 1, 1, 1, false) driver = nil end return end
         if driver == nil or not driver:isValid() or driver != Seat:getDriver() then Hitbox:emitSound("^vehicles/apc/apc_start_loop3.wav", 75, 100, 1, 1, 1, false) end
         driver = Seat:getDriver()
+        if not keydown and driver:keyDown(IN_KEY.WALK) then
+            keydown = true
+            Light = !Light
+            Seat:emitSound("^items/flashlight1.wav", 75, 100, 1, 1, 1, false)
+        end
+        if keydown and not driver:keyDown(IN_KEY.WALK) then keydown = false end
         if driver:keyDown(IN_KEY.SPEED) then Speed = SpeedSlow else Speed = SpeedNormal end
         if not driver:isHUDActive() then enableHud(driver, true) end
         local t = kn(IN_KEY.MOVERIGHT)-kn(IN_KEY.MOVELEFT)
@@ -332,12 +340,59 @@ if SERVER then
 end
 //The Clientside Stuff
 if CLIENT then
-    
+    Apc = nil
+    ApcParent = nil
+    ApcLight = nil
+    LightOn = false
+    net.receive("Apc", function() 
+        ApcParent = net.readEntity() 
+        ApcParent:setRenderBounds(Vector(), Vector())
+        Apc = net.readEntity() 
+        LightOn = net.readBool() 
+        Driver = net.readEntity() 
+    end)
     net.receive("Name", function()
         local ent = net.readEntity()
+        if !useKSLib then return end
         if ent != nil and ent:isValid() then
             if ent:getClass() == "prop_physics" and player() != owner() then return end
             ks.setKSName(ent, net.readString())
+        end
+    end)
+    
+    hook.add("Think", "", function()
+        local flag = true
+        if Apc == nil or not Apc:isValid() then flag = false end
+        if ApcParent == nil or not ApcParent:isValid() then flag = false end
+        if Driver == nil or not Driver:isValid() then flag = false end
+        if not LightOn then flag = false end
+        if flag then
+            if ApcLight != nil and ApcLight:isValid() then
+                pos, ang = Apc:toHologram():getAttachment(Apc:toHologram():lookupAttachment("muzzle"))
+                ApcLight:setPos(pos)
+                /*ang = ApcParent:worldToLocalAngles(Driver:getEyeAngles())
+                ang:setP(math.clamp(ang.p, -45, 30))
+                ang:setR(math.clamp(ang.r, -45, 30))
+                ang = ApcParent:localToWorldAngles(ang)*/
+                ApcLight:setAngles(ang)
+                ApcLight:setFarZ(2000)
+                ApcLight:setNearZ(1)
+                ApcLight:update()
+            else
+                ApcLight = light.createProjected()
+                ApcLight:setFOV(60)
+                ApcLight:setFarZ(2000)
+                ApcLight:setNearZ(1)
+                ApcLight:setBrightness(4)
+                ApcLight:setTexture("effects/flashlight001")
+                ApcLight:update()
+            end
+        else
+            if ApcLight != nil and ApcLight:isValid() and ApcLight:getFarZ() > 0 then
+                ApcLight:setFarZ(0)
+                ApcLight:setNearZ(0)
+                ApcLight:update()
+            end
         end
     end)
     
